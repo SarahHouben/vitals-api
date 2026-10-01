@@ -1,0 +1,28 @@
+[project]
+name = "vitals-api"
+version = "0.1.0"
+description = "A small FastAPI service for storing vital-sign readings and flagging worrying ones"
+readme = "README.md"
+authors = [
+    { name = "SarahHouben", email = "mail@sarahhouben.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi[standard]>=0.142.2",
+    "sqlmodel>=0.0.47",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.21,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+]
+
+
+[tool.pytest]
+testpaths = ["tests"]
+strict = true
