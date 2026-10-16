@@ -4,6 +4,7 @@ import uuid
 from datetime import UTC
 
 import pytest
+from sqlalchemy import inspect
 from sqlmodel import select
 
 from vitals_api.models import Reading
@@ -159,3 +160,8 @@ def test_recorded_at_is_returned_in_utc(client, session):
     assert response.json()["recorded_at"] == "2026-10-06T10:15:00Z"
     row = session.exec(select(Reading)).one()
     assert row.recorded_at.tzinfo == UTC
+
+
+def test_readings_are_indexed_by_patient_and_time(session):
+    indexes = inspect(session.get_bind()).get_indexes("reading")
+    assert ["patient_id", "recorded_at"] in [i["column_names"] for i in indexes]

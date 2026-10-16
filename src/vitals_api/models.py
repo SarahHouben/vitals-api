@@ -3,6 +3,7 @@
 import uuid
 
 from pydantic import AwareDatetime, ConfigDict
+from sqlalchemy import Index
 from sqlmodel import Field, SQLModel
 
 
@@ -23,6 +24,10 @@ class ReadingCreate(ReadingBase):
 
 class Reading(ReadingBase, table=True):
     """A reading as stored in the database."""
+
+    __table_args__ = (
+        Index("ix_reading_patient_id_recorded_at", "patient_id", "recorded_at"),
+    )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid7, primary_key=True)
 
