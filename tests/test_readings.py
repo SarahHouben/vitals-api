@@ -1,8 +1,12 @@
 """Test the readings endpoint of the FastAPI application."""
 
 import uuid
+from datetime import UTC
 
 import pytest
+from sqlmodel import select
+
+from vitals_api.models import Reading
 
 VALID_READING = {
     "patient_id": "p-1",
@@ -133,3 +137,25 @@ def test_boundary_reading_returns_201(client, payload):
         json=payload,
     )
     assert_reading_saved(response, payload)
+
+
+def test_create_reading_stores_it(client, session):
+    response = client.post(
+        "/readings",
+        json=VALID_READING,
+    )
+    assert response.status_code == 201
+    rows = session.exec(select(Reading)).all()
+    assert len(rows) == 1
+    assert rows[0].model_dump(mode="json") == response.json()
+
+
+def test_recorded_at_is_returned_in_utc(client, session):
+    response = client.post(
+        "/readings",
+        json={**VALID_READING, "recorded_at": "2026-10-06T11:15:00+01:00"},
+    )
+    assert response.status_code == 201
+    assert response.json()["recorded_at"] == "2026-10-06T10:15:00Z"
+    row = session.exec(select(Reading)).one()
+    assert row.recorded_at.tzinfo == UTC
