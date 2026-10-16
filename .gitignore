@@ -11,3 +11,6 @@ wheels/
 
 # Editor settings
 .vscode/
+
+# Database
+*.db

@@ -1,9 +1,8 @@
 """Test the readings endpoint of the FastAPI application."""
 
-import pytest
-from fastapi.testclient import TestClient
+import uuid
 
-from vitals_api.main import app
+import pytest
 
 VALID_READING = {
     "patient_id": "p-1",
@@ -14,13 +13,20 @@ VALID_READING = {
 }
 
 
-def test_create_reading_returns_201():
-    response = TestClient(app).post(
+def assert_reading_saved(response, sent):
+    assert response.status_code == 201
+    body = response.json()
+    reading_id = body.pop("id")
+    assert uuid.UUID(reading_id).version == 7
+    assert body == sent
+
+
+def test_create_reading_returns_201(client):
+    response = client.post(
         "/readings",
         json=VALID_READING,
     )
-    assert response.status_code == 201
-    assert response.json() == VALID_READING
+    assert_reading_saved(response, VALID_READING)
 
 
 @pytest.mark.parametrize(
@@ -83,8 +89,8 @@ def test_create_reading_returns_201():
         ),
     ],
 )
-def test_invalid_reading_returns_422(payload, invalid_field):
-    response = TestClient(app).post(
+def test_invalid_reading_returns_422(client, payload, invalid_field):
+    response = client.post(
         "/readings",
         json=payload,
     )
@@ -121,10 +127,9 @@ def test_invalid_reading_returns_422(payload, invalid_field):
         ),
     ],
 )
-def test_boundary_reading_returns_201(payload):
-    response = TestClient(app).post(
+def test_boundary_reading_returns_201(client, payload):
+    response = client.post(
         "/readings",
         json=payload,
     )
-    assert response.status_code == 201
-    assert response.json() == payload
+    assert_reading_saved(response, payload)
