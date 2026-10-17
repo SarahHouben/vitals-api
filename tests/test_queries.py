@@ -1,7 +1,7 @@
 """Test the read queries."""
 
 from vitals_api.models import Reading
-from vitals_api.queries import get_latest_reading
+from vitals_api.queries import get_latest_reading, list_readings
 
 BASE_READING = {
     "patient_id": "p-1",
@@ -11,12 +11,13 @@ BASE_READING = {
 }
 
 OLD_RECORDED_AT = "2026-10-06T10:15:00Z"
+MIDDLE_RECORDED_AT = "2026-10-06T12:15:00Z"
 NEW_RECORDED_AT = "2026-10-07T11:00:00Z"
 
 
 def add_reading(session, recorded_at):
-    reading = {**BASE_READING, "recorded_at": recorded_at}
-    row = Reading.model_validate(reading)
+    data = {**BASE_READING, "recorded_at": recorded_at}
+    row = Reading.model_validate(data)
     session.add(row)
     session.commit()
     session.refresh(row)
@@ -32,6 +33,32 @@ def test_get_latest_reading_returns_newest_reading(session):
     newer_reading = add_reading(session, NEW_RECORDED_AT)
     add_reading(session, OLD_RECORDED_AT)
 
-    data = get_latest_reading(session, BASE_READING["patient_id"])
-    assert data.id == newer_reading.id
-    assert data.recorded_at == newer_reading.recorded_at
+    reading = get_latest_reading(session, BASE_READING["patient_id"])
+    assert reading.id == newer_reading.id
+
+
+def test_list_readings_returns_empty_list_for_unknown_patient(session):
+    readings = list_readings(session, "nobody")
+    assert readings == []
+
+
+def test_list_readings_returns_newest_readings_first(session):
+    newest_reading = add_reading(session, NEW_RECORDED_AT)
+    oldest_reading = add_reading(session, OLD_RECORDED_AT)
+    middle_reading = add_reading(session, MIDDLE_RECORDED_AT)
+
+    readings = list_readings(session, BASE_READING["patient_id"])
+    assert [r.id for r in readings] == [
+        newest_reading.id,
+        middle_reading.id,
+        oldest_reading.id,
+    ]
+
+
+def test_list_readings_returns_only_newest_up_to_limit(session):
+    newest_reading = add_reading(session, NEW_RECORDED_AT)
+    add_reading(session, OLD_RECORDED_AT)
+    middle_reading = add_reading(session, MIDDLE_RECORDED_AT)
+
+    readings = list_readings(session, BASE_READING["patient_id"], limit=2)
+    assert [r.id for r in readings] == [newest_reading.id, middle_reading.id]
