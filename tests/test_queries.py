@@ -74,10 +74,11 @@ def test_alerts_for_reading_returns_empty_list_for_normal_reading():
 
 
 @pytest.mark.parametrize(
-    ("heart_rate", "expected"),
+    ("field", "value", "expected"),
     [
-        pytest.param(100, [], id="heart_rate_100_is_normal"),
+        pytest.param("heart_rate_bpm", 100, [], id="heart_rate_100_is_normal"),
         pytest.param(
+            "heart_rate_bpm",
             101,
             [
                 VitalAlert(
@@ -87,22 +88,63 @@ def test_alerts_for_reading_returns_empty_list_for_normal_reading():
             id="heart_rate_101_is_high",
         ),
         pytest.param(
+            "heart_rate_bpm",
             50,
             [],
             id="heart_rate_50_is_normal",
         ),
         pytest.param(
+            "heart_rate_bpm",
             49,
             [VitalAlert(field="heart_rate_bpm", value=49, limit=50, direction="below")],
             id="heart_rate_49_is_low",
         ),
+        pytest.param(
+            "respiratory_rate_per_min", 12, [], id="respiratory_rate_12_is_normal"
+        ),
+        pytest.param(
+            "respiratory_rate_per_min",
+            11,
+            [
+                VitalAlert(
+                    field="respiratory_rate_per_min",
+                    value=11,
+                    limit=12,
+                    direction="below",
+                )
+            ],
+            id="respiratory_rate_11_is_low",
+        ),
+        pytest.param(
+            "respiratory_rate_per_min", 20, [], id="respiratory_rate_20_is_normal"
+        ),
+        pytest.param(
+            "respiratory_rate_per_min",
+            21,
+            [
+                VitalAlert(
+                    field="respiratory_rate_per_min",
+                    value=21,
+                    limit=20,
+                    direction="above",
+                )
+            ],
+            id="respiratory_rate_21_is_high",
+        ),
+        pytest.param("spo2_percent", 94, [], id="spo2_94_is_normal"),
+        pytest.param(
+            "spo2_percent",
+            93,
+            [VitalAlert(field="spo2_percent", value=93, limit=94, direction="below")],
+            id="spo2_93_is_low",
+        ),
     ],
 )
-def test_alerts_for_reading_heart_rate_limits(heart_rate, expected):
+def test_alerts_for_reading_limits(field, value, expected):
     data = {
         **BASE_READING,
         "recorded_at": NEW_RECORDED_AT,
-        "heart_rate_bpm": heart_rate,
+        field: value,
     }
     reading = Reading.model_validate(data)
     assert alerts_for_reading(reading) == expected
