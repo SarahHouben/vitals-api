@@ -1,6 +1,7 @@
 """Models for the vitals API."""
 
 import uuid
+from typing import Literal
 
 from pydantic import AwareDatetime, ConfigDict
 from sqlalchemy import Index
@@ -36,3 +37,12 @@ class ReadingPublic(ReadingBase):
     """Vital signs recorded for a patient as returned by the API."""
 
     id: uuid.UUID
+
+
+class VitalAlert(SQLModel):
+    """Alert data for vital signs outside of the normal range."""
+
+    field: str
+    value: int
+    limit: int
+    direction: Literal["below", "above"]

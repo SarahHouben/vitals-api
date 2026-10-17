@@ -1,7 +1,9 @@
 """Test the read queries."""
 
-from vitals_api.models import Reading
-from vitals_api.queries import get_latest_reading, list_readings
+import pytest
+
+from vitals_api.models import Reading, VitalAlert
+from vitals_api.queries import alerts_for_reading, get_latest_reading, list_readings
 
 BASE_READING = {
     "patient_id": "p-1",
@@ -62,3 +64,45 @@ def test_list_readings_returns_only_newest_up_to_limit(session):
 
     readings = list_readings(session, BASE_READING["patient_id"], limit=2)
     assert [r.id for r in readings] == [newest_reading.id, middle_reading.id]
+
+
+def test_alerts_for_reading_returns_empty_list_for_normal_reading():
+    data = {**BASE_READING, "recorded_at": NEW_RECORDED_AT}
+    reading = Reading.model_validate(data)
+    alerts = alerts_for_reading(reading)
+    assert alerts == []
+
+
+@pytest.mark.parametrize(
+    ("heart_rate", "expected"),
+    [
+        pytest.param(100, [], id="heart_rate_100_is_normal"),
+        pytest.param(
+            101,
+            [
+                VitalAlert(
+                    field="heart_rate_bpm", value=101, limit=100, direction="above"
+                )
+            ],
+            id="heart_rate_101_is_high",
+        ),
+        pytest.param(
+            50,
+            [],
+            id="heart_rate_50_is_normal",
+        ),
+        pytest.param(
+            49,
+            [VitalAlert(field="heart_rate_bpm", value=49, limit=50, direction="below")],
+            id="heart_rate_49_is_low",
+        ),
+    ],
+)
+def test_alerts_for_reading_heart_rate_limits(heart_rate, expected):
+    data = {
+        **BASE_READING,
+        "recorded_at": NEW_RECORDED_AT,
+        "heart_rate_bpm": heart_rate,
+    }
+    reading = Reading.model_validate(data)
+    assert alerts_for_reading(reading) == expected
