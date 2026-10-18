@@ -1,9 +1,20 @@
 """Database engine and session setup for the vitals API."""
 
+import os
+from pathlib import Path
+
 from sqlmodel import Session, SQLModel, create_engine
 
-SQLITE_FILE_NAME = "vitals.db"
-SQLITE_URL = f"sqlite:///{SQLITE_FILE_NAME}"
+
+def database_path() -> Path:
+    """Return the SQLite file's path: $VITALS_DB_PATH if set, else vitals.db in the project folder."""
+    value = os.environ.get("VITALS_DB_PATH")
+    if value:
+        return Path(value)
+    return Path(__file__).resolve().parents[2] / "vitals.db"
+
+
+SQLITE_URL = f"sqlite:///{database_path()}"
 
 engine = create_engine(SQLITE_URL, connect_args={"check_same_thread": False})
 
