@@ -3,7 +3,12 @@
 import pytest
 
 from vitals_api.models import Reading, VitalAlert
-from vitals_api.queries import alerts_for_reading, get_latest_reading, list_readings
+from vitals_api.queries import (
+    alerts_for_reading,
+    get_latest_reading,
+    list_readings,
+    patients_with_alerts,
+)
 
 BASE_READING = {
     "patient_id": "p-1",
@@ -17,8 +22,8 @@ MIDDLE_RECORDED_AT = "2026-10-06T12:15:00Z"
 NEW_RECORDED_AT = "2026-10-07T11:00:00Z"
 
 
-def add_reading(session, recorded_at):
-    data = {**BASE_READING, "recorded_at": recorded_at}
+def add_reading(session, recorded_at, **overrides):
+    data = {**BASE_READING, "recorded_at": recorded_at, **overrides}
     row = Reading.model_validate(data)
     session.add(row)
     session.commit()
@@ -140,7 +145,7 @@ def test_alerts_for_reading_returns_empty_list_for_normal_reading():
         ),
     ],
 )
-def test_alerts_for_reading_limits(field, value, expected):
+def test_alerts_for_reading_flags_values_outside_normal_range(field, value, expected):
     data = {
         **BASE_READING,
         "recorded_at": NEW_RECORDED_AT,
@@ -148,3 +153,38 @@ def test_alerts_for_reading_limits(field, value, expected):
     }
     reading = Reading.model_validate(data)
     assert alerts_for_reading(reading) == expected
+
+
+def test_patients_with_alerts_returns_empty_list_when_no_readings(session):
+    result = patients_with_alerts(session)
+    assert result == []
+
+
+def test_patients_with_alerts_lists_patient_with_abnormal_latest_reading(session):
+    row = add_reading(session, MIDDLE_RECORDED_AT, heart_rate_bpm=112)
+    result = patients_with_alerts(session)
+    assert [p.reading.id for p in result] == [row.id]
+    assert result[0].alerts == [
+        VitalAlert(field="heart_rate_bpm", value=112, limit=100, direction="above")
+    ]
+
+
+def test_patients_with_alerts_ignores_old_abnormal_reading(session):
+    add_reading(session, NEW_RECORDED_AT)
+    add_reading(session, OLD_RECORDED_AT, heart_rate_bpm=112)
+    result = patients_with_alerts(session)
+    assert result == []
+
+
+def test_patients_with_alerts_lists_only_abnormal_patients_in_order(session):
+    add_reading(session, MIDDLE_RECORDED_AT, patient_id="p-3", spo2_percent=90)
+    add_reading(session, MIDDLE_RECORDED_AT, patient_id="p-1", heart_rate_bpm=112)
+    add_reading(session, MIDDLE_RECORDED_AT, patient_id="p-2")
+    result = patients_with_alerts(session)
+    assert [p.reading.patient_id for p in result] == ["p-1", "p-3"]
+    assert result[0].alerts == [
+        VitalAlert(field="heart_rate_bpm", value=112, limit=100, direction="above")
+    ]
+    assert result[1].alerts == [
+        VitalAlert(field="spo2_percent", value=90, limit=94, direction="below")
+    ]

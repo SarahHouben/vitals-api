@@ -2,7 +2,13 @@
 
 from sqlmodel import Session, select
 
-from vitals_api.models import Reading, ReadingBase, VitalAlert
+from vitals_api.models import (
+    PatientAlert,
+    Reading,
+    ReadingBase,
+    ReadingPublic,
+    VitalAlert,
+)
 
 
 def get_latest_reading(session: Session, patient_id: str) -> Reading | None:
@@ -58,3 +64,21 @@ def alerts_for_reading(reading: ReadingBase) -> list[VitalAlert]:
                 )
             )
     return alerts
+
+
+def patients_with_alerts(session: Session) -> list[PatientAlert]:
+    """Return the patients whose latest reading has alerts, with those alerts."""
+    patient_ids = session.exec(
+        select(Reading.patient_id).distinct().order_by(Reading.patient_id)
+    ).all()
+    result = []
+    for patient_id in patient_ids:
+        reading = get_latest_reading(session, patient_id)
+        alerts = alerts_for_reading(reading)
+        if alerts:
+            result.append(
+                PatientAlert(
+                    reading=ReadingPublic.model_validate(reading), alerts=alerts
+                )
+            )
+    return result

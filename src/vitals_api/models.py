@@ -46,3 +46,10 @@ class VitalAlert(SQLModel):
     value: int
     limit: int
     direction: Literal["below", "above"]
+
+
+class PatientAlert(SQLModel):
+    """A patient's latest reading together with its alerts."""
+
+    reading: ReadingPublic
+    alerts: list[VitalAlert]
